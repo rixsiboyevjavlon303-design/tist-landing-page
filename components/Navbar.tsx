@@ -23,6 +23,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [pendingTarget, setPendingTarget] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -42,6 +43,38 @@ export default function Navbar() {
   }, [mobileOpen]);
 
   const openMainSite = () => setModalOpen(true);
+
+  const handleMobileNavClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string
+  ) => {
+    // Menyu ochiqligida body overflow "hidden" bo'ladi. Havola bosilganda React
+    // menyuni (AnimatePresence exit) bir vaqtda ko'chirib tashlashi brauzerning
+    // #anchor bo'yicha standart scrollini ham bekor qilishi mumkin. Shuning
+    // uchun navigatsiya menyu to'liq yopilgandan KEYIN (onExitComplete)
+    // bajariladigan pendingTarget orqali amalga oshiriladi.
+    event.preventDefault();
+    setPendingTarget(href);
+    setMobileOpen(false);
+  };
+
+  const handleMobileNavExitComplete = () => {
+    if (!pendingTarget) return;
+    const href = pendingTarget;
+    setPendingTarget(null);
+
+    const targetId = href.replace("#", "");
+    const target = document.getElementById(targetId);
+    if (target) {
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+      target.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+      });
+      history.replaceState(null, "", href);
+    }
+  };
 
   return (
     <>
@@ -119,7 +152,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        <AnimatePresence>
+        <AnimatePresence onExitComplete={handleMobileNavExitComplete}>
           {mobileOpen ? (
             <motion.div
               id="mobile-menu"
@@ -137,7 +170,7 @@ export default function Navbar() {
                   <a
                     key={link.href}
                     href={link.href}
-                    onClick={() => setMobileOpen(false)}
+                    onClick={(event) => handleMobileNavClick(event, link.href)}
                     className="rounded-xl px-4 py-3 text-base font-medium text-white/90 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   >
                     {link.label}
